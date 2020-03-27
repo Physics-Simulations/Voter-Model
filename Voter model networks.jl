@@ -39,6 +39,14 @@ function init_ER(N, p)
     
 end
 
+function init_WS(N, k, beta)
+   
+    G = watts_strogatz(N, k, beta)
+    
+    return G
+    
+end
+
 function random_imitation(G, node_dic)
     
     #Run for all nodes
@@ -113,6 +121,12 @@ function simulation(G, node_dic, t)
         
         density_t[k] = compute_observables(G, node_dic)
         
+        if density_t[k] == 0
+           
+            break
+            
+        end
+        
     end
     
     return G, density_t / ne(G)
@@ -149,6 +163,18 @@ function Voter_model_BA(N, n0, k, qs, t)
     
 end 
 
+function Voter_model_WS(N, k, beta, qs, t)
+    
+    G = init_WS(N, k, beta)
+    
+    node_dic = set_node_states(N, qs)
+    
+    G, density = simulation(G, node_dic, t)
+    
+    return G, density
+    
+end 
+
 function compute_avg_ER(N, p, qs, t, times)
     
     taus = zeros(times)
@@ -176,6 +202,25 @@ function compute_avg_BA(N, n0, k, qs, t, times)
     @inbounds for j in 1 : times
        
         G, density = Voter_model_BA(N, n0, k, qs, t)
+        
+        avg_density += density
+        
+        taus[j] = length(density[density .> 0])
+         
+    end
+    
+    return avg_density ./ times, taus
+    
+end
+
+function compute_avg_WS(N, k, beta, qs, t, times)
+    
+    taus = zeros(times)
+    avg_density = zeros(t)
+    
+    @inbounds for j in 1 : times
+       
+        G, density = Voter_model_WS(N, k, beta, qs, t)
         
         avg_density += density
         
@@ -253,7 +298,39 @@ function N_study_BA(Ns, n0, k, qs, t, times)
     
 end
 
-function plateau_study_ER(avg_ks, N, qs, t, times)
+function N_study_WS(Ns, k, beta, qs, t, times)
+    
+    f_tau = open("tau_N_WS.txt", "w")
+    
+    println(f_tau, "#N\t<tau>")
+    
+    for N in Ns
+        
+        density, taus = @time compute_avg_WS(N, k, beta, qs, t, times)
+        
+        avg_tau = mean(taus)
+        
+        f = open("results_WS_N_$N.txt", "w")
+        
+        println(f, "#rho_t")
+        
+        for i in 1 : t
+           
+            println(f, density[i])
+            
+        end
+        
+        close(f)
+        
+        println(f_tau, N, "\t", avg_tau)
+        
+    end
+    
+    close(f_tau)
+    
+end
+
+function avg_degree_study_ER(avg_ks, N, qs, t, times)
     
     plateau_k = zeros(length(avg_ks))
     
@@ -279,8 +356,8 @@ function plateau_study_ER(avg_ks, N, qs, t, times)
             
         end
         
-        println(mean(plateau))
-        plateau_k[i] = mean(plateau) 
+        #println(mean(plateau ./ times))
+        plateau_k[i] = mean(plateau ./ times) 
          
     end
     
@@ -288,16 +365,67 @@ function plateau_study_ER(avg_ks, N, qs, t, times)
     
 end
 
-#General parameters
+function avg_degree_study_BA(avg_ks, N, qs, t, times)
+    
+    @inbounds for avg_k in avg_ks
+        
+        n0 = Int(floor(avg_k / 2))
+        deg = n0
+        
+        density, taus = compute_avg_BA(N, n0, deg, qs, t, times)
+        
+        f = open("results_BA_k_$avg_k.txt", "w")
+        
+        println(f, "#rho_t")
+        
+        for i in 1 : t
+           
+            println(f, density[i])
+            
+        end
+        
+        close(f)
+         
+    end
+    
+end
+
+
+function avg_degree_study_BA(avg_ks, beta, N, qs, t, times)
+    
+    @inbounds for avg_k in avg_ks
+        
+        n0 = Int(floor(avg_k / 2))
+        deg = n0
+        
+        density, taus = compute_avg_WS(N, k, beta, qs, t, times)
+        
+        f = open("results_BA_k_$avg_k.txt", "w")
+        
+        println(f, "#rho_t")
+        
+        for i in 1 : t
+           
+            println(f, density[i])
+            
+        end
+        
+        close(f)
+         
+    end
+    
+end
+
 qs = [1, 2]
 
-t = 10^4
+t = 5*10^5
 
-#ER parameters
-avg_deg = 8
+times = 10^3
 
-times = 10^0
+k = 4
 
-Ns = [10^3, 2*10^3, 5*10^3]
+beta = 0.05
 
-#N_study_ER(Ns, avg_deg, qs, t, times)
+Ns = [800, 1600, 3200]
+
+@time N_study_WS(Ns, k, beta, qs, t, times)

@@ -115,7 +115,7 @@ function simulation(t, lattice, neighbours_table, sites)
     
     MC_t = length(lattice)
     
-    for k in 1 : t
+    @inbounds for k in 1 : t
         
         for i in 1 : MC_t
         
@@ -127,42 +127,15 @@ function simulation(t, lattice, neighbours_table, sites)
         
         density_t[k] = compute_observables(lattice, neighbours_table, sites)
         
-    end
-    
-    return lattice, density_t / (length(lattice))
-    
-end
-
-function complete_sim(lattice, neighbours_table, sites)
-    
-    density_t = []
-    
-    MC_t = length(lattice)
-    
-    density = 1.
-    k = 0
-    
-    while density != 0
-        
-        density = 0.
-        
-        k += 1
-        
-        for i in 1 : MC_t
-        
-            site = rand(sites)
-        
-            lattice = random_imitation(lattice, neighbours_table, site)
+        if density_t[k] == 0
+           
+            break
             
         end
         
-        density = compute_observables(lattice, neighbours_table, sites)
-        
-        density_t[k] = density
-        
     end
     
-    return lattice, density_t / length(lattice)
+    return lattice, density_t / (length(lattice))
     
 end
 
@@ -215,7 +188,7 @@ function N_study(Ns, qs, t, times)
         
         println("N: $N")
         
-        dims = (N, N)
+        dims = (N, N, N)
         
         density_t, taus = @time Avg_Voter_model(dims, qs, t, times);
         
@@ -225,7 +198,7 @@ function N_study(Ns, qs, t, times)
         
         println(f,"#rho_t")
         
-        for i in 1 : length(density_t)
+        @inbounds for i in 1 : length(density_t)
            
             println(f, density_t[i])
             
@@ -241,12 +214,12 @@ function N_study(Ns, qs, t, times)
     
 end
     
-Ns = [20, 40, 60]
+Ns = [8, 9, 10, 12, 15, 18]
 
 qs = [1, 2]
 
 t = 10^5
 
-times = 1000
+times = 10^3
 
-N_study(Ns, qs, t, times)
+@time N_study(Ns, qs, t, times)
